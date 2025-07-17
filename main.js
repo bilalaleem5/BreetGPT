@@ -11,43 +11,25 @@ class AdvancedChatInterface {
         this.currentTheme = localStorage.getItem('theme') || 'dark';
         this.applyTheme();
         
-        // Enhanced responses with more personality
+        // Enhanced responses with formatting
         this.responses = [
-            "Hello! I'm BGPT, your advanced AI assistant. I'm excited to help you with anything you need! 🚀",
-            "That's a fascinating question! Let me process that and give you a thoughtful response. 🤔",
-            "I love how you think! Here's my perspective on what you've shared... ✨",
-            "Excellent point! I can definitely help you explore that topic further. 💡",
-            "Thank you for that interesting message! I'm here to provide you with the best assistance possible. 🌟",
-            "I appreciate your curiosity! Let me break this down for you in a helpful way. 📚",
-            "What an intriguing topic! I'm always excited to dive deep into subjects like this. 🔍",
-            "I'm impressed by your question! Here's what I think would be most helpful... 🎯",
-            "That's exactly the kind of challenge I enjoy tackling! Let me help you with that. ⚡",
-            "Great question! I can see you're really thinking about this. Here's my detailed response... 🧠"
+            {
+                type: 'greeting',
+                content: "Hello! I'm BGPT, Dr. Brett's AI Coaching Assistant. I'm here to help you elevate your game! 🚀"
+            },
+            {
+                type: 'presence',
+                content: "**Presence** is about being fully engaged in the current moment. Here are the key aspects:\n\n• Mindful awareness of your surroundings\n• Focus on immediate actions and goals\n• Letting go of past and future concerns\n\nWould you like to learn specific techniques for improving presence?"
+            },
+            {
+                type: 'goals',
+                content: "Setting tough goals requires a strategic approach:\n\n1. **Dream Big**: Envision your ultimate achievement\n2. **Break it Down**: Create smaller, manageable milestones\n3. **Timeline**: Set specific deadlines for each step\n4. **Accountability**: Share your goals with others\n5. **Track Progress**: Monitor and celebrate small wins\n\nWhat type of goal would you like to work on?"
+            },
+            {
+                type: 'fundamentals',
+                content: "The **5 Fundamentals** are core principles for success:\n\n1. **Mindset**: Cultivate a growth-oriented perspective\n2. **Discipline**: Build consistent, positive habits\n3. **Focus**: Maintain clarity on priorities\n4. **Resilience**: Bounce back from setbacks\n5. **Excellence**: Pursue continuous improvement\n\nWhich fundamental would you like to explore further?"
+            }
         ];
-        
-        // Contextual responses based on keywords
-        this.contextualResponses = {
-            greeting: [
-                "Hello there! Welcome to BGPT! I'm thrilled to meet you and ready to assist with anything you need. How can I make your day better? 😊",
-                "Hi! Great to see you here! I'm BGPT, your intelligent AI companion. What exciting topic shall we explore together today? 🌟",
-                "Hey! Welcome aboard! I'm BGPT, and I'm absolutely delighted to help you with whatever you have in mind. What's on your agenda? 🚀"
-            ],
-            help: [
-                "I'm here to help with absolutely anything! I can answer questions, solve problems, provide explanations, have conversations, help with creative tasks, and so much more. What would you like to explore? 💪",
-                "My capabilities are quite extensive! I can assist with research, writing, problem-solving, creative projects, learning new topics, and engaging discussions. What interests you most? 🎯",
-                "I'd love to help you! I'm designed to assist with a wide range of tasks - from answering questions to helping with complex problems. What challenge can we tackle together? ⚡"
-            ],
-            thanks: [
-                "You're absolutely welcome! It's my pleasure to help. I'm always here whenever you need assistance or just want to chat! 😊",
-                "Thank you for the kind words! I really enjoy our conversation and I'm glad I could be helpful. Anything else on your mind? 🌟",
-                "My pleasure entirely! Helping you is what I'm here for, and I love every moment of it. What else can we explore together? ✨"
-            ],
-            goodbye: [
-                "It's been wonderful chatting with you! Feel free to come back anytime - I'll be right here, ready to help with whatever you need. Take care! 👋",
-                "Goodbye for now! I've really enjoyed our conversation. Remember, I'm always here whenever you want to chat or need assistance. Have a fantastic day! 🌟",
-                "See you later! Thanks for the great conversation. I'll be here waiting for your return with more exciting topics to discuss! 🚀"
-            ]
-        };
         
         this.init();
     }
@@ -55,7 +37,91 @@ class AdvancedChatInterface {
     init() {
         this.bindEvents();
         this.messageInput.focus();
+        this.setupPromptButtons();
         this.addInitialDelay();
+    }
+    
+    setupPromptButtons() {
+        const promptButtons = document.querySelectorAll('.prompt-btn');
+        promptButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const prompt = button.getAttribute('data-prompt');
+                this.handlePromptClick(prompt);
+            });
+        });
+    }
+    
+    handlePromptClick(prompt) {
+        this.hideWelcomeScreen();
+        this.addMessage(prompt, 'user');
+        
+        // Show typing indicator
+        setTimeout(() => {
+            this.showTypingIndicator();
+        }, 300);
+        
+        // Generate response based on prompt
+        const responseDelay = 1200 + Math.random() * 1000;
+        setTimeout(() => {
+            this.hideTypingIndicator();
+            this.generatePromptResponse(prompt);
+        }, responseDelay);
+    }
+    
+    generatePromptResponse(prompt) {
+        let response;
+        
+        if (prompt.includes('Presence')) {
+            response = this.responses.find(r => r.type === 'presence').content;
+        } else if (prompt.includes('goal')) {
+            response = this.responses.find(r => r.type === 'goals').content;
+        } else if (prompt.includes('Fundamentals')) {
+            response = this.responses.find(r => r.type === 'fundamentals').content;
+        } else {
+            response = this.responses.find(r => r.type === 'greeting').content;
+        }
+        
+        this.addFormattedMessage(response, 'bot');
+    }
+    
+    addFormattedMessage(message, sender) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${sender}`;
+        
+        const currentTime = new Date().toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        // Convert markdown-style formatting to HTML
+        const formattedContent = message
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n•/g, '</p><ul><li>')
+            .replace(/\n(\d+)\./g, '</p><ol><li>')
+            .replace(/\n(?![•\d])/g, '</li><li>')
+            .split('</p>').join('</p><p>');
+        
+        if (sender === 'user') {
+            messageElement.innerHTML = `
+                <div class="message-bubble">
+                    ${this.escapeHtml(message)}
+                    <div class="message-time">${currentTime}</div>
+                </div>
+            `;
+        } else {
+            messageElement.innerHTML = `
+                <div class="message-avatar">B</div>
+                <div class="message-bubble">
+                    <p>${formattedContent}</p>
+                    <div class="message-time">${currentTime}</div>
+                </div>
+            `;
+        }
+        
+        this.messagesContainer.appendChild(messageElement);
+        this.scrollToBottom();
+        this.addMessageEffect(messageElement);
     }
     
     addInitialDelay() {
@@ -133,7 +199,69 @@ class AdvancedChatInterface {
         inputContainer.style.transform = '';
     }
     
-    sendMessage() {
+    showError(message, suggestion = '') {
+        const errorElement = document.createElement('div');
+        errorElement.className = 'error-message';
+        errorElement.innerHTML = `
+            <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div>
+                <div>${message}</div>
+                ${suggestion ? `<div class="error-suggestion">${suggestion}</div>` : ''}
+            </div>
+        `;
+        this.messagesContainer.appendChild(errorElement);
+        this.scrollToBottom();
+        
+        // Remove error after 5 seconds
+        setTimeout(() => {
+            errorElement.style.animation = 'fadeOut 0.3s ease forwards';
+            setTimeout(() => errorElement.remove(), 300);
+        }, 5000);
+    }
+
+    showLoadingState(message = 'Processing your request...') {
+        const loadingElement = document.createElement('div');
+        loadingElement.className = 'loading-state';
+        loadingElement.innerHTML = `
+            <div class="loading-spinner"></div>
+            <div>${message}</div>
+            <div class="loading-progress">
+                <div class="loading-bar"></div>
+            </div>
+        `;
+        this.messagesContainer.appendChild(loadingElement);
+        this.scrollToBottom();
+        return loadingElement;
+    }
+
+    hideLoadingState(loadingElement) {
+        if (loadingElement) {
+            loadingElement.style.animation = 'fadeOut 0.3s ease forwards';
+            setTimeout(() => loadingElement.remove(), 300);
+        }
+    }
+
+    handleError(error) {
+        console.error('Error:', error);
+        let message = 'Something went wrong';
+        let suggestion = 'Please try again or rephrase your request';
+        
+        if (error.message.includes('network')) {
+            message = 'Network connection issue';
+            suggestion = 'Please check your internet connection and try again';
+        } else if (error.message.includes('timeout')) {
+            message = 'Request timed out';
+            suggestion = 'The server is taking too long to respond. Please try again';
+        }
+        
+        this.showError(message, suggestion);
+    }
+
+    async sendMessage() {
         const message = this.messageInput.value.trim();
         if (!message || this.isTyping) return;
         
@@ -150,17 +278,17 @@ class AdvancedChatInterface {
         // Add send button animation
         this.animateSendButton();
         
-        // Show typing indicator with delay
-        setTimeout(() => {
-            this.showTypingIndicator();
-        }, 300);
-        
-        // Generate response with realistic delay
-        const responseDelay = 1200 + Math.random() * 1800;
-        setTimeout(() => {
-            this.hideTypingIndicator();
+        try {
+            const loadingElement = this.showLoadingState();
+            
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+            
+            this.hideLoadingState(loadingElement);
             this.addBotResponse(message);
-        }, responseDelay);
+        } catch (error) {
+            this.handleError(error);
+        }
     }
     
     animateSendButton() {
