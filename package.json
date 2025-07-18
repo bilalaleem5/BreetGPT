@@ -1,0 +1,23 @@
+{
+  "name": "breet-gpt-premium",
+  "version": "1.0.0",
+  "description": "Premium AI chat interface with advanced features",
+  "main": "run.js",
+  "scripts": {
+    "start": "node run.js",
+    "dev": "node run.js"
+  },
+  "keywords": [
+    "chat",
+    "ai",
+    "premium",
+    "responsive",
+    "coaching"
+  ],
+  "author": "Role Model Academy",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=14.0.0"
+  }
+} 

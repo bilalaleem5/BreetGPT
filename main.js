@@ -11,6 +11,9 @@ class AdvancedChatInterface {
         this.currentTheme = localStorage.getItem('theme') || 'dark';
         this.applyTheme();
         
+        // Message history for improved conversation tracking
+        this.messageHistory = [];
+        
         // Enhanced responses with formatting
         this.responses = [
             {
@@ -28,6 +31,10 @@ class AdvancedChatInterface {
             {
                 type: 'fundamentals',
                 content: "The **5 Fundamentals** are core principles for success:\n\n1. **Mindset**: Cultivate a growth-oriented perspective\n2. **Discipline**: Build consistent, positive habits\n3. **Focus**: Maintain clarity on priorities\n4. **Resilience**: Bounce back from setbacks\n5. **Excellence**: Pursue continuous improvement\n\nWhich fundamental would you like to explore further?"
+            },
+            {
+                type: 'discipline',
+                content: "**Discipline** is about building consistent habits that align with your goals. Here's how to improve it:\n\n• Start small with manageable commitments\n• Create a structured routine and stick to it\n• Track your progress visually\n• Build accountability systems\n• Reward consistency over perfection\n\nWhich area of discipline would you like to focus on first?"
             }
         ];
         
@@ -39,6 +46,44 @@ class AdvancedChatInterface {
         this.messageInput.focus();
         this.setupPromptButtons();
         this.addInitialDelay();
+        this.setupCustomEventListeners();
+        this.optimizePageLoad();
+    }
+    
+    optimizePageLoad() {
+        // Preload essential images
+        const imagesToPreload = ['rma-logo.svg'];
+        const preloader = document.getElementById('resource-preloader');
+        
+        imagesToPreload.forEach(src => {
+            const img = new Image();
+            img.src = src;
+            if (preloader) preloader.appendChild(img);
+        });
+        
+        // Add page load timestamp for performance tracking
+        window.pageLoadTime = Date.now();
+        
+        // Mark DOM as fully loaded
+        document.documentElement.classList.add('dom-loaded');
+    }
+    
+    setupCustomEventListeners() {
+        // Create custom events for premium features
+        this.messageSentEvent = new CustomEvent('bgpt-message-sent', { 
+            detail: { message: '', sender: '' },
+            bubbles: true 
+        });
+        
+        this.botResponseEvent = new CustomEvent('bgpt-bot-response', { 
+            detail: { message: '' },
+            bubbles: true 
+        });
+        
+        this.messageAddedEvent = new CustomEvent('bgpt-message-added', { 
+            detail: { element: null },
+            bubbles: true 
+        });
     }
     
     setupPromptButtons() {
@@ -70,23 +115,31 @@ class AdvancedChatInterface {
     
     generatePromptResponse(prompt) {
         let response;
+        let context = '';
         
         if (prompt.includes('Presence')) {
             response = this.responses.find(r => r.type === 'presence').content;
+            context = 'presence';
         } else if (prompt.includes('goal')) {
             response = this.responses.find(r => r.type === 'goals').content;
+            context = 'goals';
         } else if (prompt.includes('Fundamentals')) {
             response = this.responses.find(r => r.type === 'fundamentals').content;
+            context = 'fundamentals';
+        } else if (prompt.includes('discipline')) {
+            response = this.responses.find(r => r.type === 'discipline').content;
+            context = 'fundamentals'; // Use fundamentals context for discipline
         } else {
             response = this.responses.find(r => r.type === 'greeting').content;
+            context = 'default';
         }
         
-        this.addFormattedMessage(response, 'bot');
+        this.addFormattedMessage(response, 'bot', context);
     }
     
-    addFormattedMessage(message, sender) {
+    addFormattedMessage(message, sender, context = 'default') {
         const messageElement = document.createElement('div');
-        messageElement.className = `message ${sender}`;
+        messageElement.className = `message ${sender}${context ? ' context-' + context : ''}`;
         
         const currentTime = new Date().toLocaleTimeString([], { 
             hour: '2-digit', 
@@ -109,6 +162,14 @@ class AdvancedChatInterface {
                     <div class="message-time">${currentTime}</div>
                 </div>
             `;
+            
+            // Track user message for conversation history
+            this.messageHistory.push({ sender: 'user', message, timestamp: new Date() });
+            
+            // Dispatch message sent event for premium features
+            this.messageSentEvent.detail.message = message;
+            this.messageSentEvent.detail.sender = 'user';
+            document.dispatchEvent(this.messageSentEvent);
         } else {
             messageElement.innerHTML = `
                 <div class="message-avatar">B</div>
@@ -117,11 +178,22 @@ class AdvancedChatInterface {
                     <div class="message-time">${currentTime}</div>
                 </div>
             `;
+            
+            // Track bot message for conversation history
+            this.messageHistory.push({ sender: 'bot', message, timestamp: new Date() });
+            
+            // Dispatch bot response event for premium features
+            this.botResponseEvent.detail.message = message;
+            document.dispatchEvent(this.botResponseEvent);
         }
         
         this.messagesContainer.appendChild(messageElement);
         this.scrollToBottom();
         this.addMessageEffect(messageElement);
+        
+        // Dispatch message added event for premium features
+        this.messageAddedEvent.detail.element = messageElement;
+        document.dispatchEvent(this.messageAddedEvent);
     }
     
     addInitialDelay() {
@@ -203,11 +275,7 @@ class AdvancedChatInterface {
         const errorElement = document.createElement('div');
         errorElement.className = 'error-message';
         errorElement.innerHTML = `
-            <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
+            <i class="ri-error-warning-line error-icon"></i>
             <div>
                 <div>${message}</div>
                 ${suggestion ? `<div class="error-suggestion">${suggestion}</div>` : ''}
@@ -248,81 +316,76 @@ class AdvancedChatInterface {
     handleError(error) {
         console.error('Error:', error);
         let message = 'Something went wrong';
-        let suggestion = 'Please try again or rephrase your request';
+        let suggestion = 'Please try again or reload the page.';
         
-        if (error.message.includes('network')) {
-            message = 'Network connection issue';
-            suggestion = 'Please check your internet connection and try again';
-        } else if (error.message.includes('timeout')) {
-            message = 'Request timed out';
-            suggestion = 'The server is taking too long to respond. Please try again';
+        if (error && error.message) {
+            if (error.message.includes('network')) {
+                message = 'Network error';
+                suggestion = 'Please check your internet connection and try again.';
+            } else if (error.message.includes('timeout')) {
+                message = 'Request timed out';
+                suggestion = 'Server might be busy, please try again in a moment.';
+            }
         }
         
         this.showError(message, suggestion);
     }
-
+    
     async sendMessage() {
         const message = this.messageInput.value.trim();
         if (!message || this.isTyping) return;
         
-        // Hide welcome screen on first message
-        if (this.messageCount === 0) {
-            this.hideWelcomeScreen();
-        }
-        
-        this.addMessage(message, 'user');
         this.messageInput.value = '';
-        this.updateSendButton();
-        this.messageCount++;
-        
-        // Add send button animation
+        this.hideWelcomeScreen();
+        this.addMessage(message, 'user');
         this.animateSendButton();
+        this.updateSendButton();
+        
+        // Show typing indicator
+        setTimeout(() => {
+            this.showTypingIndicator();
+        }, 300);
         
         try {
-            const loadingElement = this.showLoadingState();
-            
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-            
-            this.hideLoadingState(loadingElement);
-            this.addBotResponse(message);
+            // Generate response with dynamic delay based on message length
+            const responseDelay = Math.min(1000 + message.length * 20, 3000);
+            setTimeout(async () => {
+                this.hideTypingIndicator();
+                await this.addBotResponse(message);
+            }, responseDelay);
         } catch (error) {
+            this.hideTypingIndicator();
             this.handleError(error);
         }
     }
     
     animateSendButton() {
-        const ripple = this.sendButton.querySelector('.send-ripple');
-        ripple.style.transform = 'scale(1)';
+        const ripple = document.querySelector('.send-ripple');
+        ripple.style.animation = 'none';
         setTimeout(() => {
-            ripple.style.transform = 'scale(0)';
-        }, 600);
+            ripple.style.animation = '';
+        }, 10);
+        
+        this.sendButton.classList.add('send-pulse');
+        setTimeout(() => {
+            this.sendButton.classList.remove('send-pulse');
+        }, 300);
     }
     
     hideWelcomeScreen() {
-        this.welcomeScreen.style.animation = 'welcomeFadeOut 0.5s ease-in forwards';
-        setTimeout(() => {
-            this.welcomeScreen.style.display = 'none';
-        }, 500);
-        
-        // Add fade out animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes welcomeFadeOut {
-                from {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-                to {
-                    opacity: 0;
-                    transform: translateY(-30px);
-                }
-            }
-        `;
-        document.head.appendChild(style);
+        if (this.welcomeScreen && this.welcomeScreen.style.display !== 'none') {
+            this.welcomeScreen.style.opacity = '0';
+            this.welcomeScreen.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                this.welcomeScreen.style.display = 'none';
+            }, 300);
+        }
     }
     
     addMessage(message, sender) {
+        this.messageCount++;
+        
         const messageElement = document.createElement('div');
         messageElement.className = `message ${sender}`;
         
@@ -338,82 +401,123 @@ class AdvancedChatInterface {
                     <div class="message-time">${currentTime}</div>
                 </div>
             `;
+            
+            // Track user message for conversation history
+            this.messageHistory.push({ sender: 'user', message, timestamp: new Date() });
+            
+            // Dispatch message sent event for premium features
+            this.messageSentEvent.detail.message = message;
+            this.messageSentEvent.detail.sender = 'user';
+            document.dispatchEvent(this.messageSentEvent);
         } else {
             messageElement.innerHTML = `
                 <div class="message-avatar">B</div>
                 <div class="message-bubble">
-                    ${this.escapeHtml(message)}
+                    ${message}
                     <div class="message-time">${currentTime}</div>
                 </div>
             `;
+            
+            // Track bot message for conversation history
+            this.messageHistory.push({ sender: 'bot', message, timestamp: new Date() });
+            
+            // Dispatch bot response event for premium features
+            this.botResponseEvent.detail.message = message;
+            document.dispatchEvent(this.botResponseEvent);
         }
         
         this.messagesContainer.appendChild(messageElement);
         this.scrollToBottom();
-        
-        // Add message sound effect (visual feedback)
         this.addMessageEffect(messageElement);
+        
+        // Dispatch message added event for premium features
+        this.messageAddedEvent.detail.element = messageElement;
+        document.dispatchEvent(this.messageAddedEvent);
     }
     
     addMessageEffect(messageElement) {
-        // Add a subtle glow effect when message appears
-        const bubble = messageElement.querySelector('.message-bubble');
-        bubble.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.3)';
+        // Add entrance animation
+        messageElement.style.opacity = '0';
+        messageElement.style.transform = 'translateY(20px)';
+        
         setTimeout(() => {
-            bubble.style.boxShadow = '';
-        }, 1000);
+            messageElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            messageElement.style.opacity = '1';
+            messageElement.style.transform = 'translateY(0)';
+        }, 10);
     }
     
-    addBotResponse(userMessage) {
-        const response = this.generateResponse(userMessage);
+    async addBotResponse(userMessage) {
+        const response = await this.generateResponse(userMessage);
         this.addMessage(response, 'bot');
     }
     
-    generateResponse(userMessage) {
-        const message = userMessage.toLowerCase();
+    async generateResponse(userMessage) {
+        // Determine context from message for better responses
+        let context = this.determineMessageContext(userMessage);
+        let response = '';
         
-        // Check for contextual responses
-        if (this.containsWords(message, ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening'])) {
-            return this.getRandomResponse(this.contextualResponses.greeting);
+        // Basic response generation logic
+        const lowercaseMessage = userMessage.toLowerCase();
+        
+        if (this.containsWords(lowercaseMessage, ['hi', 'hello', 'hey', 'greetings'])) {
+            response = this.responses.find(r => r.type === 'greeting').content;
+        } 
+        else if (this.containsWords(lowercaseMessage, ['presence', 'mindful', 'present', 'awareness'])) {
+            response = this.responses.find(r => r.type === 'presence').content;
+        } 
+        else if (this.containsWords(lowercaseMessage, ['goal', 'target', 'objective', 'achievement'])) {
+            response = this.responses.find(r => r.type === 'goals').content;
+        } 
+        else if (this.containsWords(lowercaseMessage, ['fundamental', 'principle', 'core', 'foundation'])) {
+            response = this.responses.find(r => r.type === 'fundamentals').content;
+        } 
+        else if (this.containsWords(lowercaseMessage, ['discipline', 'habit', 'routine', 'consistent'])) {
+            response = this.responses.find(r => r.type === 'discipline').content;
+        } 
+        else {
+            // Default responses based on context or generic
+            const contextResponses = {
+                presence: [
+                    "Presence is about being fully engaged in the moment. What aspect of presence are you most interested in?",
+                    "Mindfulness and presence work together to enhance your awareness. Would you like to learn specific techniques?"
+                ],
+                goals: [
+                    "Setting meaningful goals requires clarity and commitment. What area of your life are you focusing on?",
+                    "Goals provide direction and purpose. What timeline are you considering for your objectives?"
+                ],
+                fundamentals: [
+                    "The 5 Fundamentals form the foundation of sustained excellence. Which one resonates with you most?",
+                    "Understanding these core principles can transform your approach. Which fundamental challenges you the most?"
+                ],
+                default: [
+                    "I'm here to help you elevate your game. What specific area would you like guidance on?",
+                    "Thanks for reaching out. I can assist with presence, goals, and fundamentals. What's your focus today?",
+                    "As Dr. Brett's AI assistant, I'm designed to help you reach new heights. What would you like to work on?"
+                ]
+            };
+            
+            const responses = contextResponses[context] || contextResponses.default;
+            response = this.getRandomResponse(responses);
         }
         
-        if (this.containsWords(message, ['help', 'what can you do', 'capabilities', 'assist', 'support'])) {
-            return this.getRandomResponse(this.contextualResponses.help);
+        return response;
+    }
+    
+    determineMessageContext(message) {
+        const lowercaseMessage = message.toLowerCase();
+        
+        if (this.containsWords(lowercaseMessage, ['presence', 'mindful', 'present', 'awareness'])) {
+            return 'presence';
+        } 
+        else if (this.containsWords(lowercaseMessage, ['goal', 'target', 'objective', 'achievement'])) {
+            return 'goals';
+        } 
+        else if (this.containsWords(lowercaseMessage, ['fundamental', 'principle', 'core', 'foundation', 'discipline'])) {
+            return 'fundamentals';
         }
         
-        if (this.containsWords(message, ['thank you', 'thanks', 'appreciate', 'grateful'])) {
-            return this.getRandomResponse(this.contextualResponses.thanks);
-        }
-        
-        if (this.containsWords(message, ['bye', 'goodbye', 'see you', 'farewell', 'take care'])) {
-            return this.getRandomResponse(this.contextualResponses.goodbye);
-        }
-        
-        // Specific topic responses
-        if (this.containsWords(message, ['weather', 'temperature', 'climate'])) {
-            return "I don't have access to real-time weather data, but I'd recommend checking a reliable weather service for current conditions. However, I'd be happy to discuss climate patterns, weather phenomena, or help you plan for different weather conditions! 🌤️";
-        }
-        
-        if (this.containsWords(message, ['time', 'clock', 'hour', 'minute'])) {
-            const currentTime = new Date().toLocaleString();
-            return `According to your device, it's currently ${currentTime}. Is there anything time-related I can help you with? Perhaps scheduling, time zones, or time management tips? ⏰`;
-        }
-        
-        if (this.containsWords(message, ['name', 'who are you', 'what are you'])) {
-            return "I'm BGPT, your advanced AI assistant! I'm designed to be helpful, informative, and engaging. I love learning about new topics and helping solve problems. Think of me as your intelligent digital companion! 🤖✨";
-        }
-        
-        if (this.containsWords(message, ['joke', 'funny', 'humor', 'laugh'])) {
-            const jokes = [
-                "Why don't scientists trust atoms? Because they make up everything! 😄",
-                "I told my computer a joke about UDP... but I'm not sure if it got it! 💻😂",
-                "Why did the AI go to therapy? It had too many deep learning issues! 🤖😅"
-            ];
-            return this.getRandomResponse(jokes);
-        }
-        
-        // Default responses with more personality
-        return this.getRandomResponse(this.responses);
+        return 'default';
     }
     
     containsWords(text, words) {
@@ -438,9 +542,20 @@ class AdvancedChatInterface {
     }
     
     scrollToBottom() {
-        setTimeout(() => {
-            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-        }, 100);
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
+    
+    scrollToMessage(index) {
+        const messages = this.messagesContainer.querySelectorAll('.message');
+        if (messages[index]) {
+            messages[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight the message briefly
+            messages[index].classList.add('highlight');
+            setTimeout(() => {
+                messages[index].classList.remove('highlight');
+            }, 2000);
+        }
     }
     
     escapeHtml(text) {
@@ -450,61 +565,36 @@ class AdvancedChatInterface {
     }
     
     showNotification(message) {
-        // Create a temporary notification
+        // Check if notification container exists
+        const notificationContainer = document.querySelector('.notification-container');
+        
+        if (!notificationContainer) {
+            console.error('Notification container not found');
+            return;
+        }
+        
+        // Create notification element
         const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #1e40af, #3b82f6);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            animation: slideInRight 0.3s ease-out;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        `;
-        notification.textContent = message;
+        notification.className = 'notification';
+        notification.innerHTML = message;
         
-        document.body.appendChild(notification);
+        // Add to container
+        notificationContainer.appendChild(notification);
         
+        // Animate in
         setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease-in forwards';
+            notification.classList.add('show');
+        }, 10);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
             setTimeout(() => {
-                document.body.removeChild(notification);
+                notification.remove();
             }, 300);
         }, 3000);
         
-        // Add animation styles
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                @keyframes slideOutRight {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
+        return notification;
     }
     
     toggleTheme() {
@@ -512,8 +602,9 @@ class AdvancedChatInterface {
         this.applyTheme();
         localStorage.setItem('theme', this.currentTheme);
         
-        const themeText = this.currentTheme === 'dark' ? 'Dark' : 'Light';
-        this.showNotification(`Switched to ${themeText} theme! 🎨`);
+        // Show confirmation
+        const themeMessage = this.currentTheme === 'dark' ? 'Dark mode activated' : 'Light mode activated';
+        this.showNotification(themeMessage);
     }
     
     applyTheme() {
@@ -521,29 +612,17 @@ class AdvancedChatInterface {
         
         // Update theme button icon
         const themeBtn = document.getElementById('themeBtn');
-        const themeIcon = themeBtn.querySelector('svg');
         
-        if (this.currentTheme === 'light') {
-            themeIcon.innerHTML = `
-                <circle cx="12" cy="12" r="5"></circle>
-                <line x1="12" y1="1" x2="12" y2="3"></line>
-                <line x1="12" y1="21" x2="12" y2="23"></line>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                <line x1="1" y1="12" x2="3" y2="12"></line>
-                <line x1="21" y1="12" x2="23" y2="12"></line>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            `;
-        } else {
-            themeIcon.innerHTML = `
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            `;
+        if (themeBtn) {
+            if (this.currentTheme === 'dark') {
+                themeBtn.innerHTML = '<i class="ri-moon-line"></i>';
+            } else {
+                themeBtn.innerHTML = '<i class="ri-sun-line"></i>';
+            }
         }
     }
 }
 
-// Enhanced interaction effects
 class InteractionEffects {
     constructor() {
         this.init();
@@ -556,110 +635,82 @@ class InteractionEffects {
     }
     
     addHoverEffects() {
-        // Add hover effects to interactive elements
-        const interactiveElements = document.querySelectorAll('button, .feature-card, .message-bubble');
+        const interactiveElements = document.querySelectorAll('button, .prompt-btn, .action-btn');
         
         interactiveElements.forEach(element => {
-            element.addEventListener('mouseenter', (e) => {
-                this.createHoverEffect(e.target);
+            element.addEventListener('mouseenter', () => this.createHoverEffect(element));
+            element.addEventListener('mouseleave', () => {
+                element.style.transform = '';
+                element.style.boxShadow = '';
             });
         });
     }
     
     addClickEffects() {
-        // Add click ripple effects
-        const clickableElements = document.querySelectorAll('button, .feature-card');
+        const clickableElements = document.querySelectorAll('button, .prompt-btn, .action-btn');
         
         clickableElements.forEach(element => {
-            element.addEventListener('click', (e) => {
-                this.createRippleEffect(e);
+            element.addEventListener('mousedown', (e) => this.createRippleEffect(e));
+            element.addEventListener('mouseup', () => {
+                element.style.transform = '';
             });
         });
     }
     
     addKeyboardEffects() {
-        // Add keyboard interaction feedback
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && document.activeElement.id === 'messageInput') {
-                this.createKeyboardEffect();
-            }
-        });
+        document.addEventListener('keydown', () => this.createKeyboardEffect());
     }
     
     createHoverEffect(element) {
-        element.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        element.style.transform = 'translateY(-2px)';
+        element.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
     }
     
     createRippleEffect(e) {
-        const button = e.currentTarget;
-        const rect = button.getBoundingClientRect();
-        const size = Math.max(rect.width, rect.height);
-        const x = e.clientX - rect.left - size / 2;
-        const y = e.clientY - rect.top - size / 2;
+        const element = e.currentTarget;
         
-        const ripple = document.createElement('div');
-        ripple.style.cssText = `
-            position: absolute;
-            width: ${size}px;
-            height: ${size}px;
-            left: ${x}px;
-            top: ${y}px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
-            border-radius: 50%;
-            transform: scale(0);
-            animation: ripple 0.6s ease-out;
-            pointer-events: none;
-            z-index: 1;
-        `;
+        // Create ripple element
+        const ripple = document.createElement('span');
+        ripple.classList.add('ripple-effect');
         
-        button.style.position = 'relative';
-        button.style.overflow = 'hidden';
-        button.appendChild(ripple);
+        // Get element dimensions and position
+        const rect = element.getBoundingClientRect();
         
+        // Calculate ripple size (diagonal of the element for full coverage)
+        const size = Math.max(rect.width, rect.height) * 2;
+        
+        // Set ripple position and size
+        ripple.style.width = ripple.style.height = `${size}px`;
+        ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+        ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+        
+        // Add ripple to element
+        element.appendChild(ripple);
+        
+        // Apply subtle scale down effect
+        element.style.transform = 'scale(0.98)';
+        
+        // Remove ripple after animation
         setTimeout(() => {
-            if (button.contains(ripple)) {
-                button.removeChild(ripple);
-            }
+            ripple.remove();
         }, 600);
     }
     
     createKeyboardEffect() {
-        const input = document.getElementById('messageInput');
-        input.style.transform = 'scale(1.02)';
+        // Create subtle screen flash for keyboard interaction
+        const flash = document.createElement('div');
+        flash.classList.add('keyboard-flash');
+        document.body.appendChild(flash);
+        
+        // Remove flash after animation
         setTimeout(() => {
-            input.style.transform = '';
-        }, 150);
+            flash.remove();
+        }, 300);
     }
 }
 
-// Initialize everything when DOM is loaded
+// Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
-    // Add ripple animation styles
-    const rippleStyles = document.createElement('style');
-    rippleStyles.textContent = `
-        @keyframes ripple {
-            to {
-                transform: scale(2);
-                opacity: 0;
-            }
-        }
-    `;
-    document.head.appendChild(rippleStyles);
-    
-    // Initialize chat interface and effects
-    new AdvancedChatInterface();
+    window.chatInterface = new AdvancedChatInterface();
     new InteractionEffects();
-    
-    // Add loading completion effect
-    setTimeout(() => {
-        document.body.style.opacity = '1';
-        document.body.style.transform = 'translateY(0)';
-    }, 100);
 });
-
-// Add initial loading styles
-document.body.style.cssText += `
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.5s ease-out;
-`;

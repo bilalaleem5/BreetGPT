@@ -1,1 +1,10 @@
- 
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- RMA Text -->
+    <path d="M10 30V10H25C28 10 30 12 30 15C30 17.5 28.5 19.5 26 20L30 30H25L21.5 21H15V30H10Z" fill="currentColor"/>
+    <path d="M35 30V10H55L53 14H40V18H50L48 22H40V26H55L53 30H35Z" fill="currentColor"/>
+    <path d="M60 30V10H75C78 10 80 12 80 15C80 17.5 78.5 19.5 76 20L80 30H75L71.5 21H65V30H60Z" fill="currentColor"/>
+    
+    <!-- Academy Text -->
+    <path d="M25 35L23 33H97L95 35H25Z" fill="currentColor" opacity="0.6"/>
+</svg> 
