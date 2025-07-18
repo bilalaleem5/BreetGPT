@@ -319,24 +319,24 @@ class AdvancedChatInterface {
         let suggestion = 'Please try again or reload the page.';
         
         if (error && error.message) {
-            if (error.message.includes('network')) {
+        if (error.message.includes('network')) {
                 message = 'Network error';
                 suggestion = 'Please check your internet connection and try again.';
-            } else if (error.message.includes('timeout')) {
-                message = 'Request timed out';
+        } else if (error.message.includes('timeout')) {
+            message = 'Request timed out';
                 suggestion = 'Server might be busy, please try again in a moment.';
             }
         }
         
         this.showError(message, suggestion);
     }
-    
+
     async sendMessage() {
         const message = this.messageInput.value.trim();
         if (!message || this.isTyping) return;
         
         this.messageInput.value = '';
-        this.hideWelcomeScreen();
+            this.hideWelcomeScreen();
         this.addMessage(message, 'user');
         this.animateSendButton();
         this.updateSendButton();
@@ -377,8 +377,8 @@ class AdvancedChatInterface {
             this.welcomeScreen.style.opacity = '0';
             this.welcomeScreen.style.transform = 'translateY(-20px)';
             
-            setTimeout(() => {
-                this.welcomeScreen.style.display = 'none';
+        setTimeout(() => {
+            this.welcomeScreen.style.display = 'none';
             }, 300);
         }
     }
@@ -552,7 +552,7 @@ class AdvancedChatInterface {
             
             // Highlight the message briefly
             messages[index].classList.add('highlight');
-            setTimeout(() => {
+        setTimeout(() => {
                 messages[index].classList.remove('highlight');
             }, 2000);
         }
@@ -616,7 +616,7 @@ class AdvancedChatInterface {
         if (themeBtn) {
             if (this.currentTheme === 'dark') {
                 themeBtn.innerHTML = '<i class="ri-moon-line"></i>';
-            } else {
+        } else {
                 themeBtn.innerHTML = '<i class="ri-sun-line"></i>';
             }
         }
